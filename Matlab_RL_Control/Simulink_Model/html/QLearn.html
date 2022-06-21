@@ -1,0 +1,247 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>QLearn</title><meta name="generator" content="MATLAB 9.9"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2022-03-28"><meta name="DC.source" content="QLearn.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">classdef</span> QLearn &lt; handle
+    <span class="comment">%QLEARN this class implements a Q-learning agent</span>
+    <span class="comment">%   This class implementes a Tabular Q-learning agent using both</span>
+    <span class="keyword">properties</span>
+        n_s_v; <span class="comment">%number of state variable</span>
+        n_a; <span class="comment">% number of possible actions</span>
+        Q; <span class="comment">% the Q-table (value function)</span>
+        epsilon = 1; <span class="comment">% epsilon for epsilon greedy ploicy</span>
+        learning_rate = 0.1; <span class="comment">% Q-learning learning rate</span>
+        discount_factor = 0.999; <span class="comment">% Discount factor</span>
+        iter; <span class="comment">% number of steps of the episode</span>
+        e_decay_start; <span class="comment">% when epsilon should start decaying</span>
+        e_decay_finish; <span class="comment">% when epsilon should stop decaying</span>
+        e_decay_rate; <span class="comment">% how much to decrease epislon during trianing</span>
+        state_dimen; <span class="comment">% Q-table dimensions</span>
+    <span class="keyword">end</span>
+
+    <span class="keyword">methods</span>
+        <span class="keyword">function</span> obj = QLearn(num_state_variables, state_dimen ,num_actions, epsilon_decay_start, epsilon_decay_finish)
+            <span class="comment">%QLEARN Construct an instance of this class</span>
+            obj.n_s_v = num_state_variables;
+            obj.n_a = num_actions;
+            obj.state_dimen = state_dimen;
+            obj.e_decay_start = epsilon_decay_start;
+            obj.e_decay_finish = epsilon_decay_finish;
+            obj.e_decay_rate = 1/(obj.e_decay_finish - obj.e_decay_start);
+            obj.iter = 0;
+
+            <span class="comment">% Create Q-table</span>
+            obj.Q = zeros(obj.state_dimen(1), obj.state_dimen(2), obj.state_dimen(3), obj.n_a);
+
+        <span class="keyword">end</span>
+
+        <span class="keyword">function</span> a = action(obj,state)
+            <span class="comment">%ACTION chooses the action with an epsilon greedy plicy</span>
+            obj.iter = obj.iter+1;
+            <span class="keyword">if</span> obj.iter &gt; obj.e_decay_start
+                <span class="keyword">if</span> obj.iter &lt; obj.e_decay_finish
+                    obj.epsilon = obj.epsilon - obj.e_decay_rate;
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+
+            <span class="keyword">if</span> rand() &lt; obj.epsilon
+                a = randi(obj.n_a);
+            <span class="keyword">else</span>
+                max_val = -100000;
+                max_action = 1;
+                <span class="keyword">for</span> action = 1:obj.n_a
+                    index = num2cell(cat(2, state, action));
+                    val = obj.Q(index{:});
+                    <span class="keyword">if</span> val &gt; max_val
+                        max_action = action;
+                        max_val = val;
+                    <span class="keyword">end</span>
+                <span class="keyword">end</span>
+                a = max_action;
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+        <span class="keyword">function</span> a = exploit_action(obj, state)
+            <span class="comment">%EXPLOIT_ACTION allways chooses the greedy action</span>
+            max_val = -100000;
+            max_action = 1;
+            <span class="keyword">for</span> action = 1:obj.n_a
+                index = num2cell(cat(2, state, action));
+                val = obj.Q(index{:});
+                <span class="keyword">if</span> val &gt; max_val
+                    max_action = action;
+                    max_val = val;
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+            a = max_action;
+        <span class="keyword">end</span>
+
+        <span class="keyword">function</span> update_table(obj, S, A, R, Sn)
+            <span class="comment">%UPDATE_TABLE updates the Q-table value estimates with Temporal</span>
+            <span class="comment">%DFFERENCE LEARNING</span>
+            next_best_action = obj.exploit_action(Sn);
+            index = num2cell(cat(2,S,A));
+            next_index = num2cell(cat(2,Sn,next_best_action));
+            obj.Q(index{:}) = obj.Q(index{:}) + obj.learning_rate*(R + obj.Q(next_index{:}) - obj.Q(index{:}));
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+</pre><pre class="codeoutput error">Not enough input arguments.
+
+Error in QLearn (line 21)
+            obj.n_s_v = num_state_variables; 
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+classdef QLearn < handle
+    %QLEARN this class implements a Q-learning agent
+    %   This class implementes a Tabular Q-learning agent using both 
+    properties
+        n_s_v; %number of state variable
+        n_a; % number of possible actions
+        Q; % the Q-table (value function)
+        epsilon = 1; % epsilon for epsilon greedy ploicy
+        learning_rate = 0.1; % Q-learning learning rate
+        discount_factor = 0.999; % Discount factor
+        iter; % number of steps of the episode
+        e_decay_start; % when epsilon should start decaying
+        e_decay_finish; % when epsilon should stop decaying
+        e_decay_rate; % how much to decrease epislon during trianing
+        state_dimen; % Q-table dimensions
+    end
+    
+    methods
+        function obj = QLearn(num_state_variables, state_dimen ,num_actions, epsilon_decay_start, epsilon_decay_finish)
+            %QLEARN Construct an instance of this class
+            obj.n_s_v = num_state_variables; 
+            obj.n_a = num_actions;
+            obj.state_dimen = state_dimen;
+            obj.e_decay_start = epsilon_decay_start;
+            obj.e_decay_finish = epsilon_decay_finish;
+            obj.e_decay_rate = 1/(obj.e_decay_finish - obj.e_decay_start);
+            obj.iter = 0;
+            
+            % Create Q-table 
+            obj.Q = zeros(obj.state_dimen(1), obj.state_dimen(2), obj.state_dimen(3), obj.n_a);
+              
+        end
+        
+        function a = action(obj,state)
+            %ACTION chooses the action with an epsilon greedy plicy
+            obj.iter = obj.iter+1;
+            if obj.iter > obj.e_decay_start
+                if obj.iter < obj.e_decay_finish
+                    obj.epsilon = obj.epsilon - obj.e_decay_rate;
+                end
+            end
+            
+            if rand() < obj.epsilon
+                a = randi(obj.n_a);
+            else 
+                max_val = -100000;
+                max_action = 1;
+                for action = 1:obj.n_a
+                    index = num2cell(cat(2, state, action));
+                    val = obj.Q(index{:});
+                    if val > max_val
+                        max_action = action;
+                        max_val = val;
+                    end
+                end
+                a = max_action;
+            end
+        end
+        
+        function a = exploit_action(obj, state)
+            %EXPLOIT_ACTION allways chooses the greedy action
+            max_val = -100000;
+            max_action = 1;
+            for action = 1:obj.n_a
+                index = num2cell(cat(2, state, action));
+                val = obj.Q(index{:});
+                if val > max_val
+                    max_action = action;
+                    max_val = val;
+                end
+            end
+            a = max_action;
+        end
+        
+        function update_table(obj, S, A, R, Sn)
+            %UPDATE_TABLE updates the Q-table value estimates with Temporal
+            %DFFERENCE LEARNING
+            next_best_action = obj.exploit_action(Sn);
+            index = num2cell(cat(2,S,A));
+            next_index = num2cell(cat(2,Sn,next_best_action));
+            obj.Q(index{:}) = obj.Q(index{:}) + obj.learning_rate*(R + obj.Q(next_index{:}) - obj.Q(index{:}));
+        end
+    end
+end
+
+
+##### SOURCE END #####
+--></body></html>

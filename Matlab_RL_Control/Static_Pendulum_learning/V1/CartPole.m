@@ -1,0 +1,179 @@
+classdef CartPole < handle
+    %UNTITLED Summary of this class goes here
+    %   Detailed explanation goes here
+    properties
+        % --- Pendulum Variables ---
+        theta = 0 % (rad) pole angluar discplacement 
+        theta_dot = 0 % (rad/s) pole angular velocity 
+        reward = 0;
+        theta_hist;
+        
+        tau = 0.02 % time step
+        M = 1.0 % (kg) mass of cart
+        m = 0.1 % (kg) mass of the pendulum 
+        b = 0.1 % N/m/sec coeffecient of cart 
+        l = 0.5 % (m) length to pendulum centre of mass
+        I = 0.006 % (kg * m^2) mass moment of inertia of the pendulum
+        F = 0 % (N) force applied to cart
+        force_mag = 10.0 % force pushing the cart
+        g = 9.8 % (m/s^2) acceleration due to gravity
+        t = 0;
+        
+        % ---- Controller gains ---- 
+        Kp = 15; 
+        Ki = 3; 
+        Kd = 3;
+        delta = 0.25;
+        noise_scalar = 0.5;
+        
+        % ---- Pendulum limits -----
+        theta_threshold = (45*pi/180)% (rad) angle threshold 
+        
+        % ---- environment parameters ----
+        episode_limit = 1000 % number of steps to solve the environment
+        reward_weights = [1,1,1];
+        state = [0,0,0];
+    end
+
+    
+    methods
+        function obj = CartPole()
+            %  Initialise the variables and a radom initial pendulum angle
+            obj.theta = ((0.5*pi)/180)*normrnd(0,1); 
+            obj.theta_dot = 0; 
+            obj.F = 0;
+            obj.theta_hist = zeros(obj.episode_limit, 1);
+        end
+        
+        function reset(obj)
+            obj.theta = ((0.5*pi)/180)*normrnd(0,1);  %random start max 1deg deviation
+            obj.theta_dot = 0; 
+            obj.F = 0;
+        end
+        
+        
+        
+        
+        function [reward, next_state] = take_action(obj, action)
+            % ------ This action completes the following -----
+            % 1. Updates the gain parameters 
+            % 2. for (episode_limit * tau) second simulation
+            %   - applies controller to pendulum 
+            %   if angle exceeds limit 
+            %       - ends episode
+            % 3. calculates the reward and next state variables
+            exceed_status = 0;
+            [obj.Kp, obj.Ki, obj.Kd] = update_gain(action, [obj.Kp, obj.Ki, obj.Kd], obj.delta);
+            for step = 1:obj.episode_limit 
+                obj.F = obj.pid() + obj.noise_scalar*normrnd(0,1);
+
+                % Calculate the accelerations using the equations of motion
+                % double derivatives in terms of single
+                [~, y] = ode45(@(t, theta) theta_dotdot(t, theta, obj.F, obj.M, obj.m, obj.l, obj.I, obj.g), [obj.t, obj.t+obj.tau], [obj.theta; obj.theta_dot]);
+                obj.theta = y(length(y), 1);
+                obj.theta_hist(step) = obj.theta;
+                obj.theta_dot = y(length(y), 2);
+                
+                % check for exceeding limits
+                if abs(obj.theta) > obj.theta_threshold
+                    obj.theta_hist(step:obj.episode_limit) = 0;
+                    obj.reward = -200;
+                    exceed_status = 1;
+                    break;
+                end
+            end
+            if exceed_status == 0
+                obj.reward = obj.get_reward(); 
+            end
+            obj.state = obj.get_state();
+            reward = obj.reward;
+            next_state = obj.state;
+            
+            % Reset System if failed 
+            if exceed_status == 1
+                obj.reset();
+            end
+        end
+        
+        
+        
+        function f = pid(obj)
+            % e(t) --> u(t)
+            prop_signal = obj.Kp * obj.theta; 
+            dif_signal = obj.Kd * obj.theta_dot; 
+            int_signal = obj.Ki * sum(obj.theta_hist)*obj.tau;
+            f = -(prop_signal + dif_signal + int_signal);
+        end
+        
+        
+        
+        function r = get_reward(obj) 
+            integral = 0.2*abs(sum(obj.theta_hist));
+            variance = 2.0*((max(obj.theta_hist) - min(obj.theta_hist))*180/pi)^2/ (obj.episode_limit - 1);
+            peak = 10*max(abs(obj.theta_hist));
+            r = -(dot(obj.reward_weights, [integral, variance, peak]));
+        end
+        
+        function S = get_state(obj) 
+            integral = 0.2*abs(sum(obj.theta_hist));
+            variance = 2.0*((max(obj.theta_hist) - min(obj.theta_hist))*180/pi)^2/ (obj.episode_limit - 1);
+            peak = 10*max(abs(obj.theta_hist));
+            S = [integral, variance, peak];
+        end
+        
+
+        
+
+ 
+    end
+end
+
+
+
+
+function [Kp, Ki, Kd] = update_gain(action, in_gains, d)
+    %This is a discrete time PID controller
+    Kp1 = in_gains(1); 
+    Ki1 = in_gains(2); 
+    Kd1 = in_gains(3); 
+
+    delta = d;
+    if action == 1
+        Kp1 = in_gains(1) + delta; 
+    elseif action == 2
+        Kp1 = in_gains(1) - delta; 
+    elseif action == 3 
+        Ki1 = in_gains(2) + delta; 
+    elseif action == 4
+        Ki1 = in_gains(2) - delta; 
+    elseif action == 5 
+        Kd1 = in_gains(3) + delta; 
+    elseif action == 6
+        Kd1 = in_gains(3) - delta; 
+    elseif action == 7
+        Kp1 = in_gains(1); 
+        Ki1 = in_gains(2); 
+        Kd1 = in_gains(3);
+    end
+    
+    % Check for any low values that would be unstable; 
+    if Kp1 < 14.5
+        Kp1 = 14.5; 
+    elseif Ki1 < 3
+        Ki1 = 3; 
+    elseif Kd1 < 3
+        Kd1 = 3; 
+    end
+    
+    % check for any high values that could use too much force; 
+    if Kp1 > 20
+        Kp1 = 20; 
+    elseif Ki1 > 14
+        Ki1 = 14; 
+    elseif Kd1 > 14
+        Kd1 = 14; 
+    end
+    Kp = Kp1; Ki = Ki1; Kd = Kd1;    
+end
+
+

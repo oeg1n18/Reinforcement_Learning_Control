@@ -1,0 +1,256 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>DQN</title><meta name="generator" content="MATLAB 9.9"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2022-03-28"><meta name="DC.source" content="DQN.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">classdef</span> DQN &lt; handle
+    <span class="comment">%DQN This class implemented a DQN algorithm with epsilon greedy policy</span>
+    <span class="keyword">properties</span>
+        number_state; <span class="comment">% number of state variables</span>
+        number_actions; <span class="comment">% number of possible acitions</span>
+        memory; <span class="comment">% The memory replay buffer (another object)</span>
+        epsilon = 1; <span class="comment">% epsilon of the epsilon greedy policy</span>
+        epsilon_decay_start; <span class="comment">% when to start reducing epsilon</span>
+        epsilon_decay_finish; <span class="comment">% when to stop reducing epsilon</span>
+        epsilon_decay_rate; <span class="comment">% how much to decrease epsilon afer expreplay</span>
+        discount_factor = 0.95; <span class="comment">% Discount factor of Q-learning equation</span>
+        agent; <span class="comment">% the agent value function</span>
+        epoch = 0; <span class="comment">% Number of experience replays</span>
+        max_epochs = 10000; <span class="comment">% maximum number of expereince replays</span>
+        iter; <span class="comment">% how many steps of the episode have been taken</span>
+    <span class="keyword">end</span>
+
+    <span class="keyword">methods</span>
+        <span class="keyword">function</span> obj = DQN(n_S, n_A, layers, e_start, e_finish)
+            <span class="comment">%DDQN Construct an instance of this class</span>
+            obj.number_state = n_S;
+            obj.number_actions = n_A;
+            obj.memory = Experience_Replay(n_S);
+            obj.agent = makenet(layers);
+            obj.agent = confignet(obj.agent, rand(n_S, 5), -rand(n_A, 5));
+            obj.agent.trainParam.showWindow=0;
+            obj.epsilon_decay_start = e_start;
+            obj.epsilon_decay_finish = e_finish;
+            obj.epsilon_decay_rate = 1/(e_finish - e_start);
+            obj.iter = 0;
+        <span class="keyword">end</span>
+
+        <span class="keyword">function</span> a = action(obj, state)
+            <span class="comment">% ACTION choose the action with a greedy policy</span>
+            obj.iter = obj.iter +1;
+            <span class="keyword">if</span> obj.iter &gt; obj.epsilon_decay_start
+                <span class="keyword">if</span> obj.iter &lt; obj.epsilon_decay_finish
+                    obj.epsilon = obj.epsilon - obj.epsilon_decay_rate;
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+            <span class="keyword">if</span> rand() &lt; obj.epsilon
+                a = randi(obj.number_actions);
+            <span class="keyword">else</span>
+                action_vals = obj.agent(transpose(state));
+                [~, a] = max(action_vals);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+        <span class="keyword">function</span> a = exploit_action(obj, state)
+            <span class="comment">% EXPLOIT_ACTION take the greedy action</span>
+            action_vals = obj.agent(transpose(state));
+            [~, a] = max(action_vals);
+        <span class="keyword">end</span>
+
+        <span class="keyword">function</span> store(obj, S, A, R, S1)
+            <span class="comment">% STORE store the expereince in the replay buffer</span>
+            obj.memory.insert_experience(S,A,R,S1);
+        <span class="keyword">end</span>
+
+        <span class="keyword">function</span> experience_replay(obj, batch_size)
+           <span class="comment">% EXPERIENCE_REPLAY use the Q-learning equation to create</span>
+           <span class="comment">% targets and train the value function.</span>
+           obj.epoch = obj.epoch+1;
+           [S, A, R, Sn] = obj.memory.get_batch(batch_size);
+           st_predict = obj.agent(transpose(S));
+           nst_predict = obj.agent(transpose(Sn));
+           Q_target = st_predict;
+           <span class="keyword">for</span> i = 1:batch_size
+               [~,next_best_action] = max(nst_predict(:,i));
+               Q_target(A(i),i) = R(i) + obj.discount_factor * nst_predict(next_best_action,i);
+           <span class="keyword">end</span>
+           obj.agent = trainnet(obj.agent, transpose(S), Q_target);
+           obj.epoch = obj.epoch + 1;
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+
+<span class="keyword">function</span> net = makenet(layers)
+    net = feedforwardnet(layers);
+<span class="keyword">end</span>
+
+<span class="keyword">function</span> net = confignet(net, x, t)
+    net = configure(net, x, t);
+<span class="keyword">end</span>
+
+<span class="keyword">function</span> net = trainnet(net, x, t)
+    [net, ~, ~, ~, ~, ~] = adapt(net, x, t);
+<span class="keyword">end</span>
+</pre><pre class="codeoutput error">Not enough input arguments.
+
+Error in DQN (line 21)
+            obj.number_state = n_S;
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+classdef DQN < handle
+    %DQN This class implemented a DQN algorithm with epsilon greedy policy 
+    properties
+        number_state; % number of state variables
+        number_actions; % number of possible acitions
+        memory; % The memory replay buffer (another object)
+        epsilon = 1; % epsilon of the epsilon greedy policy
+        epsilon_decay_start; % when to start reducing epsilon
+        epsilon_decay_finish; % when to stop reducing epsilon
+        epsilon_decay_rate; % how much to decrease epsilon afer expreplay
+        discount_factor = 0.95; % Discount factor of Q-learning equation
+        agent; % the agent value function
+        epoch = 0; % Number of experience replays
+        max_epochs = 10000; % maximum number of expereince replays
+        iter; % how many steps of the episode have been taken
+    end
+    
+    methods
+        function obj = DQN(n_S, n_A, layers, e_start, e_finish)
+            %DDQN Construct an instance of this class
+            obj.number_state = n_S;
+            obj.number_actions = n_A;
+            obj.memory = Experience_Replay(n_S);
+            obj.agent = makenet(layers);
+            obj.agent = confignet(obj.agent, rand(n_S, 5), -rand(n_A, 5));
+            obj.agent.trainParam.showWindow=0;
+            obj.epsilon_decay_start = e_start; 
+            obj.epsilon_decay_finish = e_finish; 
+            obj.epsilon_decay_rate = 1/(e_finish - e_start);
+            obj.iter = 0;  
+        end
+        
+        function a = action(obj, state)
+            % ACTION choose the action with a greedy policy
+            obj.iter = obj.iter +1;
+            if obj.iter > obj.epsilon_decay_start
+                if obj.iter < obj.epsilon_decay_finish
+                    obj.epsilon = obj.epsilon - obj.epsilon_decay_rate;
+                end
+            end
+            if rand() < obj.epsilon
+                a = randi(obj.number_actions);
+            else 
+                action_vals = obj.agent(transpose(state));
+                [~, a] = max(action_vals);
+            end  
+        end
+
+        function a = exploit_action(obj, state)
+            % EXPLOIT_ACTION take the greedy action
+            action_vals = obj.agent(transpose(state));
+            [~, a] = max(action_vals);
+        end
+        
+        function store(obj, S, A, R, S1)
+            % STORE store the expereince in the replay buffer
+            obj.memory.insert_experience(S,A,R,S1);
+        end
+        
+        function experience_replay(obj, batch_size) 
+           % EXPERIENCE_REPLAY use the Q-learning equation to create
+           % targets and train the value function. 
+           obj.epoch = obj.epoch+1;
+           [S, A, R, Sn] = obj.memory.get_batch(batch_size);  
+           st_predict = obj.agent(transpose(S));
+           nst_predict = obj.agent(transpose(Sn));
+           Q_target = st_predict; 
+           for i = 1:batch_size
+               [~,next_best_action] = max(nst_predict(:,i));
+               Q_target(A(i),i) = R(i) + obj.discount_factor * nst_predict(next_best_action,i);
+           end
+           obj.agent = trainnet(obj.agent, transpose(S), Q_target);
+           obj.epoch = obj.epoch + 1;
+        end
+    end
+end
+
+
+function net = makenet(layers)
+    net = feedforwardnet(layers);
+end
+
+function net = confignet(net, x, t)
+    net = configure(net, x, t);
+end
+
+function net = trainnet(net, x, t)
+    [net, ~, ~, ~, ~, ~] = adapt(net, x, t);
+end
+
+##### SOURCE END #####
+--></body></html>

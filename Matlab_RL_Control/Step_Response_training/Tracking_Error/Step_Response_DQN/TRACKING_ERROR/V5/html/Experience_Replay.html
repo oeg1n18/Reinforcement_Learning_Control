@@ -1,0 +1,198 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>Experience_Replay</title><meta name="generator" content="MATLAB 9.9"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2022-02-08"><meta name="DC.source" content="Experience_Replay.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">classdef</span> Experience_Replay &lt; handle
+    <span class="comment">%EXPERIENCE_REPLAY</span>
+    <span class="comment">% A circular buffer</span>
+    <span class="keyword">properties</span>
+        buffer; <span class="comment">% matrix array storing all of the experiences</span>
+        index = 1; <span class="comment">% Current index of the latest insert</span>
+        overflow = 0; <span class="comment">% Flag to determine whether the bugfer is full</span>
+        N; <span class="comment">% Maximum memory limit</span>
+        nS; <span class="comment">% Number of State</span>
+    <span class="keyword">end</span>
+
+    <span class="keyword">methods</span>
+        <span class="comment">% Constructor to initialise the buffer memory (is faster)</span>
+        <span class="keyword">function</span> obj = Experience_Replay(n_S)
+            obj.N = 500000;
+            obj.buffer = zeros(500000, (2*n_S + 2));
+            obj.nS = n_S;
+
+        <span class="keyword">end</span>
+
+        <span class="comment">% Inserts the latest experience into to buffer</span>
+        <span class="keyword">function</span> insert_experience(obj,S,A,R,Snew)
+            <span class="keyword">if</span> obj.index &gt; obj.N
+                obj.index = 1;
+                obj.overflow = 1;
+            <span class="keyword">end</span>
+            nS = obj.nS;
+            insert = zeros(1,(2*nS + 2));
+            <span class="keyword">for</span> i = 1:(2*nS + 2)
+                <span class="keyword">if</span> i &lt; nS+1
+                    insert(i) = S(i);
+                <span class="keyword">elseif</span> i ==  nS + 1
+                    insert(i) = A;
+                <span class="keyword">elseif</span> i == nS + 2
+                    insert(i) = R;
+                <span class="keyword">elseif</span> i &gt; (nS + 2)
+                    insert(i) = Snew(i - nS - 2);
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+            obj.buffer(obj.index, 1:(2*nS + 2)) = insert;
+            obj.index = obj.index+1;
+        <span class="keyword">end</span>
+
+        <span class="comment">% Samples a batch from the buffer with uniofrm random distribution</span>
+        <span class="keyword">function</span> [Sold, A, R, Snew] = get_batch(obj, batch_size)
+            <span class="keyword">if</span> ~obj.overflow
+                rand_index = obj.index-1;
+            <span class="keyword">else</span>
+                rand_index = obj.N;
+            <span class="keyword">end</span>
+            all_i = randi(rand_index, [batch_size, 1]);
+            batch = obj.buffer(all_i, 1:(2*obj.nS + 2));
+            Sold = batch(1:batch_size, 1:obj.nS);
+            A = batch(1:batch_size, obj.nS+1);
+            R = batch(1:batch_size, obj.nS+2);
+            Snew = batch(1:batch_size, obj.nS+3:2*obj.nS+2);
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+</pre><pre class="codeoutput error">Not enough input arguments.
+
+Error in Experience_Replay (line 16)
+            obj.buffer = zeros(500000, (2*n_S + 2));
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+classdef Experience_Replay < handle
+    %EXPERIENCE_REPLAY 
+    % A circular buffer
+    properties
+        buffer; % matrix array storing all of the experiences
+        index = 1; % Current index of the latest insert
+        overflow = 0; % Flag to determine whether the bugfer is full
+        N; % Maximum memory limit
+        nS; % Number of State 
+    end
+    
+    methods
+        % Constructor to initialise the buffer memory (is faster)
+        function obj = Experience_Replay(n_S)
+            obj.N = 500000;
+            obj.buffer = zeros(500000, (2*n_S + 2));
+            obj.nS = n_S;
+            
+        end
+        
+        % Inserts the latest experience into to buffer 
+        function insert_experience(obj,S,A,R,Snew)
+            if obj.index > obj.N
+                obj.index = 1;
+                obj.overflow = 1;
+            end
+            nS = obj.nS;
+            insert = zeros(1,(2*nS + 2));
+            for i = 1:(2*nS + 2)
+                if i < nS+1
+                    insert(i) = S(i);
+                elseif i ==  nS + 1 
+                    insert(i) = A; 
+                elseif i == nS + 2
+                    insert(i) = R; 
+                elseif i > (nS + 2)
+                    insert(i) = Snew(i - nS - 2);
+                end
+            end
+            obj.buffer(obj.index, 1:(2*nS + 2)) = insert;
+            obj.index = obj.index+1;
+        end
+        
+        % Samples a batch from the buffer with uniofrm random distribution
+        function [Sold, A, R, Snew] = get_batch(obj, batch_size)
+            if ~obj.overflow
+                rand_index = obj.index-1;
+            else 
+                rand_index = obj.N;
+            end
+            all_i = randi(rand_index, [batch_size, 1]);
+            batch = obj.buffer(all_i, 1:(2*obj.nS + 2));
+            Sold = batch(1:batch_size, 1:obj.nS);
+            A = batch(1:batch_size, obj.nS+1); 
+            R = batch(1:batch_size, obj.nS+2);
+            Snew = batch(1:batch_size, obj.nS+3:2*obj.nS+2); 
+        end
+    end
+end
+
+
+
+##### SOURCE END #####
+--></body></html>
